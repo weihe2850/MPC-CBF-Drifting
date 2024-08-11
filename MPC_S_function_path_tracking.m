@@ -14,19 +14,19 @@ switch flag
 end
 function [sys, x0, str, ts] = mdlInitializeSizes
 sizes = simsizes;
-sizes.NumContStates = 0;	% ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÅºÅ¸ï¿½ï¿½ï¿½
-sizes.NumDiscStates = 0;	% ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¢ï¿½ÅºÅ¸ï¿½ï¿½ï¿½
-sizes.NumOutputs = 4;     	% ï¿½ï¿½ï¿½ï¿½ÅºÅ¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½Ò¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Åºï¿½
-sizes.NumInputs = 10;		% ï¿½ï¿½ï¿½ï¿½ï¿½ÅºÅ¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸PIDï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Úµï¿½ï¿½ï¿½ï¿½ï¿½
-sizes.DirFeedthrough = 1;	% ï¿½ï¿½ï¿½ï¿½ÏµÍ³Ö±ï¿½ï¿½Í¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Îª1
-sizes.NumSampleTimes = 1;	% ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ä£¬Ò»ï¿½ï¿½Îª1.
+sizes.NumContStates = 0;    % Á¬Ðø×´Ì¬µÄÊýÁ¿
+sizes.NumDiscStates = 0;    % ÀëÉ¢×´Ì¬µÄÊýÁ¿
+sizes.NumOutputs = 4;       % Êä³ö¶Ë¿ÚµÄÊýÁ¿
+sizes.NumInputs = 10;       % ÊäÈë¶Ë¿ÚµÄÊýÁ¿
+sizes.DirFeedthrough = 1;   % Ö±½ÓÀ¡Í¨±êÖ¾£¬1±íÊ¾´æÔÚÖ±½ÓÀ¡Í¨
+sizes.NumSampleTimes = 1;   % ²ÉÑùÊ±¼äµÄÊýÁ¿
 
 sys = simsizes(sizes);    
 x0 = [];
 str = [];
 ts = [0.1,0];
 % ts = [ ];
-% ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+% Çå³ýÍ¼ÐÎ
 clf;
 figure(1);
 [~,trajectory]=findNearestPoint([0,0], 0 ,0);
@@ -34,191 +34,190 @@ plot(trajectory(:,1),trajectory(:,2),'b');
 
 hold on;
 grid on;
-% ï¿½ï¿½Ô²ï¿½ï¿½ï¿½ï¿½ (-0.5, -25) ï¿½ë¾¶Îª 1 ï¿½ï¿½Ô²
+% »­Ô²ÐÄÔÚ (-0.5, -25) °ë¾¶Îª 1 µÄÔ²
 theta = linspace(0, 2*pi, 100);
 x_circle = 0 +1* cos(theta);
 y_circle = 0 + 1*sin(theta);
 plot(x_circle, y_circle, 'r');
 
 function sys = mdlOutputs(t,x,u) 
-%%
+    %%
 
-Time=u(7);
-%ï¿½ï¿½Ê¼ï¿½ï¿½
+Time = u(7);
+% ³õÊ¼»¯
 opti = casadi.Opti();
-%Ô¤ï¿½â²½ï¿½ï¿½
-N=20;
-Ts=0.1;
-%     ï¿½ï¿½Ê¼ï¿½ï¿½Öµ ï¿½Î¿ï¿½ï¿½ì¼£Ref_path = [X_r;Y_r;phi_r;vx_r;vy_r;r_r];
+% Ô¤²â²½Êý
+N = 20;
+Ts = 0.1;
+% ³õÊ¼²Î¿¼¹ì¼£ Ref_path = [X_r; Y_r; phi_r; vx_r; vy_r; r_r]
 Ref_path0 = opti.parameter(6, N);
 X0 = opti.parameter(3, 1);
-predict_data=zeros(2,N);
-%     ×´Ì¬ï¿½ï¿½X = [X-X_r;Y-Y_r;phi-phi_r];
-%     ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½U = [vx-vx_r;vy-vy_r;r-r_r];
-%     ï¿½Î¿ï¿½ï¿½ì¼£Æ¥ï¿½ï¿½ï¿½ =[X_r;Y_r;phi_r,vx_r;vy_r;r_r]
+predict_data = zeros(2, N);
+% ×´Ì¬±äÁ¿ X = [X - X_r; Y - Y_r; phi - phi_r]
+% ¿ØÖÆ±äÁ¿ U = [vx - vx_r; vy - vy_r; r - r_r]
+% ²Î¿¼¹ì¼£Æ¥Åä Ref_path = [X_r; Y_r; phi_r; vx_r; vy_r; r_r]
 X = opti.variable(3, N + 1);
 U = opti.variable(3, N);
-delta_U = opti.variable(3, N );
-%ï¿½ï¿½ï¿½ï¿½ï¿½Ý´ï¿½×´Ì¬ï¿½ï¿½
+delta_U = opti.variable(3, N);
+% ¿ØÖÆÔöÁ¿±äÁ¿
 J = 0;
-if Time<5
-    Q_M = 1e01*([5 0 0;
+if Time < 0.5
+    Q_M = 1e01 * ([5 0 0;
+                   0 5 0;
+                   0 0 1]);
+    % ×´Ì¬È¨ÖØ¾ØÕó
+    R = 1e04 * ([1 0 0;
                  0 5 0;
                  0 0 1]);
-    %ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¨ï¿½ï¿½
-    R = 1e04*([1 0 0;
-               0 5 0;
-               0 0 1]);
-        %Ä£ï¿½ï¿½Ô¤ï¿½â²¿ï¿½ï¿½
-    for k=1:N    
-        %ï¿½ï¿½ï¿½Ú¹ì¼£ï¿½ï¿½ï¿½Ä£ï¿½Í£ï¿½Í¨ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Úµï¿½ï¿½×´Ì¬
-        opti.subject_to( X(:,k+1)==vehicle_path_tracking_model( X(:,k),U(:,k),Ref_path0(:,k),Ts) ); 
-        J=J+X(:,k)' * Q_M *X(:,k) + U(:, 1)' * R * U(:, 1);      
+    % Ä£ÐÍÔ¤²â¿ØÖÆ²¿·Ö
+    for k = 1:N    
+        % Ô¤²â¹ì¼££¬È·±£Ã¿Ò»²½µÄ×´Ì¬Âú×ãÄ£ÐÍ
+        opti.subject_to(X(:, k+1) == vehicle_path_tracking_model(X(:, k), U(:, k), Ref_path0(:, k), Ts)); 
+        J = J + X(:, k)' * Q_M * X(:, k) + U(:, 1)' * R * U(:, 1);      
         opti.subject_to(delta_U(:, k) == 0);
     end
 
 else
-    Q_M = 1e03*([5 0 0;
-                 0 5 0;
+    Q_M = 1e03 * ([5 0 0;
+                   0 5 0;
+                   0 0 1]);
+    % ×´Ì¬È¨ÖØ¾ØÕó
+    R = 1e01 * ([1 0 0;
+                 0 5000 0;
                  0 0 1]);
-    %ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¨ï¿½ï¿½
-    R = 1e01*([1 0 0;
-               0 500 0;
-               0 0 1]);
-    %Ä£ï¿½ï¿½Ô¤ï¿½â²¿ï¿½ï¿½
-    for k=1:N    
-        %ï¿½ï¿½ï¿½Ú¹ì¼£ï¿½ï¿½ï¿½Ä£ï¿½Í£ï¿½Í¨ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½Úµï¿½ï¿½×´Ì¬
-        opti.subject_to( X(:,k+1)==vehicle_path_tracking_model( X(:,k),U(:,k),Ref_path0(:,k),Ts) );  
-        % ï¿½ï¿½ï¿½ï¿½ CBF ï¿½ï¿½È«Ô¼ï¿½ï¿½
-        % opti.subject_to(h(X(:, k), U(:, k) , Ref_path0(:,k)) >= 0);
-        % J=J+X(:,k)' * Q_M *X(:,k) + U(:, 1)' * R * U(:, 1);    
-        epsilon = 1e-6; % ï¿½ï¿½ï¿½ï¿½Ô¸ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
-        % Ô­Ê¼Ä¿ï¿½êº¯ï¿½ï¿½
-        J = J + X(:,k)' * Q_M * X(:,k) + U(:, 1)' * R * U(:, 1);
-        % ï¿½ï¿½ï¿½ï¿½ h ï¿½Ó½ï¿½ 0 Ê±ï¿½Ä³Í·ï¿½
-        penalty = 1000000 / (h(X(:, k), U(:, k), Ref_path0(:,k))^2 + epsilon); % epsilon ï¿½ï¿½Ò»ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+    % Ä£ÐÍÔ¤²â¿ØÖÆ²¿·Ö
+    for k = 1:N    
+        % Ô¤²â¹ì¼££¬È·±£Ã¿Ò»²½µÄ×´Ì¬Âú×ãÄ£ÐÍ
+        opti.subject_to(X(:, k+1) == vehicle_path_tracking_model(X(:, k), U(:, k), Ref_path0(:, k), Ts));  
+        % °²È«Ô¼Êø
+        % opti.subject_to(h(X(:, k), U(:, k), Ref_path0(:, k)) >= 0);
+        % J = J + X(:, k)' * Q_M * X(:, k) + U(:, 1)' * R * U(:, 1);    
+        epsilon = 1e-6; % Ð¡µÄÕýÊý£¬·ÀÖ¹³ýÁã
+        % Ô­Ê¼Ä¿±êº¯Êý
+        J = J + X(:, k)' * Q_M * X(:, k) + U(:, 1)' * R * U(:, 1);
+        % µ± h ½Ó½ü 0 Ê±µÄ³Í·£
+        penalty = 100000 / (h(X(:, k), U(:, k), Ref_path0(:, k))^2 + epsilon); % epsilon ÊÇÒ»¸öÐ¡µÄÕýÊý£¬·ÀÖ¹³ýÁã
         J = J + penalty;    
     end
 
-    % ï¿½ï¿½ï¿½ï¿½ delta_U
+    % ¼ÆËã delta_U
     opti.subject_to(delta_U(1, 1) == (U(1, 1) - u(8)) / Ts);
     opti.subject_to(delta_U(2, 1) == (U(2, 1) - u(9)) / Ts);
     opti.subject_to(delta_U(3, 1) == (U(3, 1) - u(10)) / Ts);
     for k = 1:N-1
         opti.subject_to(delta_U(:, k) == (U(:, k+1) - U(:, k)) / Ts);
     end
-    %%
+    %% 
 
-    max_delta_U = [200; 20; 20]; % ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ä»¯ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-    % ï¿½ï¿½ï¿½Ó¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ä»¯ï¿½ï¿½Ô¼ï¿½ï¿½
+    max_delta_U = [200; 200; 200]; % ¿ØÖÆÔöÁ¿µÄ×î´óÖµ
+    % Ê©¼Ó¿ØÖÆÔöÁ¿Ô¼Êø
     opti.subject_to(-max_delta_U(1) <= delta_U(1, :) <= max_delta_U(1));
     opti.subject_to(-max_delta_U(2) <= delta_U(2, :) <= max_delta_U(2));
     opti.subject_to(-max_delta_U(3) <= delta_U(3, :) <= max_delta_U(3));
 end
 %%
-%ï¿½ß½ï¿½Ô¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+% ½áÊøÔ¼ÊøÌõ¼þ
 opti.subject_to(X(:, 1) == X0);
 
 opti.subject_to(  0 <= U(1, :)+Ref_path0(4,:) <= 14);
 opti.subject_to( -6 <= U(2, :)+Ref_path0(5,:) <= 6);
-opti.subject_to( -1 <= U(3, :)+Ref_path0(6,:) <= 1);
+opti.subject_to( -1.25 <= U(3, :)+Ref_path0(6,:) <= 1.25);
 
 
-
-%ï¿½ï¿½ï¿½ï¿½ï¿½Å»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+% ÓÅ»¯ÎÊÌâÉèÖÃ
 opti.minimize(J);
 opts = struct;
 opts.ipopt.max_iter = 2000;
-opts.ipopt.print_level =0;%0,3
+opts.ipopt.print_level = 0; % 0,3
 opts.print_time = 0;
-opts.ipopt.acceptable_tol =1e-8;
+opts.ipopt.acceptable_tol = 1e-8;
 opts.ipopt.acceptable_obj_change_tol = 1e-6;
-opti.solver('ipopt',opts);
-%% MPCï¿½ï¿½ï¿½
-%×´Ì¬ï¿½ï¿½X = [X-X_r;Y-Y_r;phi-phi_r];
-x_car=[0;0;0];
-%ï¿½ï¿½ï¿½ë³µï¿½ï¿½ï¿½ï¿½Ç°ï¿½ì¼£×´Ì¬x_car = [X;Y;phi];
-x_car(1)=u(1);
-x_car(2)=u(2);
-x_car(3)=u(3);
-Ux=u(4);
-beta=u(5);
-r=u(6);
-V=Ux/(cos(beta)+eps);
+opti.solver('ipopt', opts);
 
-%ï¿½ï¿½ï¿½É³ï¿½Ê¼ï¿½Î¿ï¿½ï¿½ì¼£
-Ref_path_Init=zeros(6,N);
-for i=1:N
-%ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
-    currentPosition=[x_car(1)+(i-1)*Ts*V*cos(x_car(3)+beta),x_car(2)+(i-1)*Ts*V*sin(x_car(3)+beta)];
+%% MPC²¿·Ö
+% ×´Ì¬±äÁ¿ X = [X - X_r; Y - Y_r; phi - phi_r]
+x_car = [0; 0; 0];
+% »ñÈ¡³µÁ¾µ±Ç°Î»ÖÃ×´Ì¬ x_car = [X; Y; phi]
+x_car(1) = u(1);
+x_car(2) = u(2);
+x_car(3) = u(3);
+Ux = u(4);
+beta = u(5);
+r = u(6);
+V = Ux / (cos(beta) + eps);
 
-    nearestPoint = findNearestPoint(currentPosition , x_car(3) , Time);
-    %ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ¥ï¿½ï¿½ï¿½
-    X_r=nearestPoint(1);
-    Y_r=nearestPoint(2);
-    theta_r=nearestPoint(3);  
-    Ux_r=nearestPoint(4);
-    Uy_r=nearestPoint(5);
-    r_r=nearestPoint(6);  
-    %%ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ùµï¿½Ä²Î¿ï¿½ï¿½ï¿½ï¿½ï¿½×´Ì¬
-    Ref_path_Init(1,i)=X_r;
-    Ref_path_Init(2,i)=Y_r;
-    Ref_path_Init(3,i)=theta_r;  
-    Ref_path_Init(4,i)=Ux_r;
-    Ref_path_Init(5,i)=Uy_r;
- 
-    Ref_path_Init(6,i)=r_r;  
+% ³õÊ¼»¯²Î¿¼¹ì¼£
+Ref_path_Init = zeros(6, N);
+for i = 1:N
+    % ¼ÆËãµ±Ç°Î»ÖÃ
+    currentPosition = [x_car(1) + (i-1) * Ts * V * cos(x_car(3) + beta), x_car(2) + (i-1) * Ts * V * sin(x_car(3) + beta)];
+
+    nearestPoint = findNearestPoint(currentPosition, x_car(3), Time);
+    % »ñÈ¡×î½üµãµÄ²Î¿¼¹ì¼£
+    X_r = nearestPoint(1);
+    Y_r = nearestPoint(2);
+    theta_r = nearestPoint(3);  
+    Ux_r = nearestPoint(4);
+    Uy_r = nearestPoint(5);
+    r_r = nearestPoint(6);  
     
-    predict_data(1,i)=X_r;
-    predict_data(2,i)=Y_r;
+    % Ìî³ä²Î¿¼¹ì¼£¾ØÕó
+    Ref_path_Init(1, i) = X_r;
+    Ref_path_Init(2, i) = Y_r;
+    Ref_path_Init(3, i) = theta_r;  
+    Ref_path_Init(4, i) = Ux_r;
+    Ref_path_Init(5, i) = Uy_r;
+    Ref_path_Init(6, i) = r_r;  
+    
+    predict_data(1, i) = X_r;
+    predict_data(2, i) = Y_r;
 end
-%    Ref_path_Init(5,1)=Ref_path_Init(5,N);
-%    Ref_path_Init(6,1)=Ref_path_Init(6,N);
-%ï¿½ï¿½Ê¼ï¿½Å»ï¿½×´Ì¬ï¿½ï¿½x = [X-X_r;Y-Y_r;phi-phi_r];
-x_Init = x_car(1:3,1)-Ref_path_Init(1:3,1);
-%ï¿½Å»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½U = [vx-vx_r;vy-vy_r;r-r_r];
 
-%ï¿½ï¿½ï¿½ï¿½Å»ï¿½ï¿½ï¿½ï¿½ï¿½  ï¿½Ãµï¿½ï¿½ï¿½ï¿½Å¿ï¿½ï¿½ï¿½ï¿½ï¿½
+% ³õÊ¼»¯×´Ì¬±äÁ¿ x = [X - X_r; Y - Y_r; phi - phi_r]
+x_Init = x_car(1:3, 1) - Ref_path_Init(1:3, 1);
+% ¿ØÖÆ±äÁ¿ U = [vx - vx_r; vy - vy_r; r - r_r]
+
+% ÉèÖÃÓÅ»¯±äÁ¿µÄ³õÊ¼Öµ
 opti.set_value(X0, x_Init);
 opti.set_value(Ref_path0, Ref_path_Init); 
 
 sol = opti.solve();
-uout=sol.value(U);
+uout = sol.value(U);
+X_out = sol.value(X);
 
-X_out=sol.value(X);
-delta_U_out = sol.value(delta_U);
-
-
-predict_data(1,:)=predict_data(1,:)+X_out(1,1:N);
-predict_data(2,:)=predict_data(2,:)+X_out(2,1:N);
-%ï¿½ï¿½ï¿½ï¿½Êµï¿½Ê¿ï¿½ï¿½ï¿½ï¿½ï¿½u_car = [vx;vy;r];
-%Ó¦ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ 
-u_car=uout(:,1)+Ref_path_Init(4:6,1);
-plot(x_car(1),x_car(2),'*');
+predict_data(1, :) = predict_data(1, :) + X_out(1, 1:N);
+predict_data(2, :) = predict_data(2, :) + X_out(2, 1:N);
+% ¼ÆËãÊµ¼Ê¿ØÖÆÁ¿ u_car = [vx; vy; r]
+% Ó¦ÓÃ¿ØÖÆÁ¿
+u_car = uout(:, 1) + Ref_path_Init(4:6, 1);
+%´òÓ¡
+disp("Time:");
+disp(Time);
+disp("u_car:");
+disp(uout + Ref_path_Init(4:6,:));
+plot(x_car(1), x_car(2), '*');
 hold on;
-% plot(X_out(1,1:N)+Ref_path_Init(1,:),X_out(2,1:N)+Ref_path_Init(2,:),'r');
-plot(predict_data(1,:),predict_data(2,:),'r');
+% plot(X_out(1, 1:N) + Ref_path_Init(1, :), X_out(2, 1:N) + Ref_path_Init(2, :), 'r');
+plot(predict_data(1, :), predict_data(2, :), 'r');
 
 % axis([-25 25 -25 25]);
-% ï¿½ï¿½Ó¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
+% ´òÓ¡µ÷ÊÔÐÅÏ¢
 
-sys(1) = u_car(1);  % Í¬Ê±sysï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½sys[1]ï¿½ï¿½)ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½simulinkï¿½ï¿½S-functionï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ïµï¿½ï¿½ï¿½ï¿½ï¿½
-sys(2) = atan(u_car(2)/(u_car(1)+eps)) ;
+sys(1) = u_car(1);  % Í¬Ê± sys ±£´æµ±Ç°µÄ¿ØÖÆÖµ£¬sys[1] ÊÇÏµÍ³Êä³ö£¬ÓÃÓÚ Simulink µÄ S-function ½Ó¿Ú
+sys(2) = atan(u_car(2) / (u_car(1) + eps));
 sys(3) = u_car(3);
-sys(4) =6000;
+sys(4) = 6000;
 
-
-
-function h_val = h(X, U ,Refpath0)
-    % ï¿½ï¿½ï¿½ï¶¨ï¿½ï¿½ï¿½ï¿½ï¿½ CBF ï¿½ï¿½ï¿½ï¿½
-    % ï¿½ï¿½ï¿½ç£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï£ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï°ï¿½ï¿½ï¿½Ö®ï¿½ï¿½Ä¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä³ï¿½ï¿½ï¿½ï¿½Öµ
-    obstacle_position = [0; 0]; % ï¿½Ï°ï¿½ï¿½ï¿½Î»ï¿½ï¿½
-    safe_distance = 1; % ï¿½ï¿½È«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµ
+function h_val = h(X, U, Refpath0)
+    % ¶¨Òå¿ØÖÆÕÏ°­º¯Êý CBF
+    % ¼ÙÉèÓÐÒ»¸öÕÏ°­Îï£¬È·±£³µÁ¾ÓëÕÏ°­ÎïÖ®¼äµÄ¾àÀë´óÓÚÄ³¸ö°²È«Öµ
+    obstacle_position = [-2; 2]; % ÕÏ°­ÎïÎ»ÖÃ
+    safe_distance = 1; % °²È«¾àÀë
     
-    % ï¿½ï¿½ï¿½ã³µï¿½ï¿½ï¿½ï¿½Ç°Î»ï¿½ï¿½ï¿½ï¿½ï¿½Ï°ï¿½ï¿½ï¿½Ö®ï¿½ï¿½Ä¾ï¿½ï¿½ï¿½
-    distance = norm( X(1:2) + Refpath0(1:2) - obstacle_position);
+    % ¼ÆËã³µÁ¾µ±Ç°Î»ÖÃÓëÕÏ°­ÎïÖ®¼äµÄ¾àÀë
+    distance = norm(X(1:2) + Refpath0(1:2) - obstacle_position);
     
-    % ï¿½ï¿½ï¿½ï¿½ CBF ï¿½ï¿½ï¿½ï¿½
+    % ¼ÆËã CBF Öµ
     h_val = distance - safe_distance;
 
 

@@ -1,7 +1,7 @@
 function   pars = Refpath_parameters( Time )
 
-%% Carsim_2020°æ±¾ Class_C³µ²ÎÊı  ¶¯Á¦ÏµÍ³£ººóÇı300kW,6-spd,4:1 Ratio
-%¹ì¼£²Î¿¼×´Ì¬
+%% Carsim_2020ç‰ˆæœ¬ Class_Cè½¦å‚æ•°  åŠ¨åŠ›ç³»ç»Ÿï¼šåé©±300kW,6-spd,4:1 Ratio
+%è½¨è¿¹å‚è€ƒçŠ¶æ€
     if Time >40
         pars.Ux_p1=12;
         pars.beta_p1=-0.5; 
@@ -20,7 +20,7 @@ function   pars = Refpath_parameters( Time )
         pars.Ux_p1=10;
         pars.beta_p1=0; 
         pars.r_p1=0.6;
-        pars.radius_p1 = 18;           % m / s^2
+        pars.radius_p1 = 180;           % m / s^2
 
         pars.start_theta_p1 =-pi/2;         
         pars.end_theta_p1 = 3*pi/2;        
