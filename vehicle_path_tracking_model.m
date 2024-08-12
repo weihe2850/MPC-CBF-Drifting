@@ -22,6 +22,7 @@ function x_update = vehicle_path_tracking_model(x, u, u_prev, Ref_path, Ts, tau)
     % 计算状态导数
     x_dot = A * x + B * u_delayed;
 
+    alpha = 0.4; % 0.5 表示中点法
     % 更新状态
-    x_update = x + x_dot * Ts;
+    x_update = (1 - alpha) * x + alpha * (x + x_dot * Ts);
 end

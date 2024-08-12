@@ -12,36 +12,25 @@ switch flag
         error(['UNhandled flag = ', num2str(flag)]);
          
 end
+
 function [sys, x0, str, ts] = mdlInitializeSizes
-sizes = simsizes;
-sizes.NumContStates = 0;    % 连续状态的数量
-sizes.NumDiscStates = 0;    % 离散状态的数量
-sizes.NumOutputs = 4;       % 输出端口的数量
-sizes.NumInputs = 10;       % 输入端口的数量
-sizes.DirFeedthrough = 1;   % 直接馈通标志，1表示存在直接馈通
-sizes.NumSampleTimes = 1;   % 采样时间的数量
+    sizes = simsizes;
+    sizes.NumContStates = 0;
+    sizes.NumDiscStates = 0;
+    sizes.NumOutputs = 4;
+    sizes.NumInputs = 10;
+    sizes.DirFeedthrough = 1;
+    sizes.NumSampleTimes = 1;
 
-sys = simsizes(sizes);    
-x0 = [];
-str = [];
-ts = [0.1,0];
-% ts = [ ];
-% 清除图形
-clf;
-figure(1);
-[~,trajectory]=findNearestPoint([0,0], 0 ,0);
-plot(trajectory(:,1),trajectory(:,2),'b');
+    sys = simsizes(sizes);    
+    x0 = [];
+    str = [];
+    ts = [0.1, 0];
 
-hold on;
-grid on;
-% 画圆心在 (-0.5, -25) 半径为 1 的圆
-theta = linspace(0, 2*pi, 100);
-x_circle = 0 +1* cos(theta);
-y_circle = 2 + 1*sin(theta);
-plot(x_circle, y_circle, 'r');
+    % 清除图形并初始化绘图
+    initializePlot();
 
 function sys = mdlOutputs(t,x,u) 
-    %%
 
 Time = u(7);
 % 初始化
@@ -52,7 +41,7 @@ Ts = 0.1;
 % 初始参考轨迹 Ref_path = [X_r; Y_r; phi_r; vx_r; vy_r; r_r]
 Ref_path0 = opti.parameter(6, N);
 X0 = opti.parameter(3, 1);
-predict_data = zeros(2, N);
+predict_data = zeros(3, N);
 % 状态变量 X = [X - X_r; Y - Y_r; phi - phi_r]
 % 控制变量 U = [vx - vx_r; vy - vy_r; r - r_r]
 % 参考轨迹匹配 Ref_path = [X_r; Y_r; phi_r; vx_r; vy_r; r_r]
@@ -60,7 +49,7 @@ X = opti.variable(3, N + 1);
 U = opti.variable(3, N);
 U_prev = opti.parameter(3, 1); % 前一时刻的控制信号
 delta_U = opti.variable(3, N);
-tau = 0.8; % 控制信号的时间常数
+tau = 0.0001; % 控制信号的时间常数
 % 控制增量变量
 J = 0;
 if Time < 0.5
@@ -133,7 +122,7 @@ opti.subject_to(X(:, 1) == X0);
 
 opti.subject_to(  0 <= U(1, :)+Ref_path0(4,:) <= 14);
 opti.subject_to( -6 <= U(2, :)+Ref_path0(5,:) <= 6);
-opti.subject_to( -1.25 <= U(3, :)+Ref_path0(6,:) <= 1.25);
+opti.subject_to( -2 <= U(3, :)+Ref_path0(6,:) <= 2);
 
 
 % 优化问题设置
@@ -184,6 +173,8 @@ for i = 1:N
     
     predict_data(1, i) = X_r;
     predict_data(2, i) = Y_r;
+    predict_data(3, i) = theta_r;
+
 end
 
 % 初始化状态变量 x = [X - X_r; Y - Y_r; phi - phi_r]
@@ -197,25 +188,23 @@ opti.set_value(U_prev, u_prev_init); % 设置前一时刻的控制信号初始值
 sol = opti.solve();
 uout = sol.value(U);
 X_out = sol.value(X);
+% 绘制状态量和变化率
+
 
 predict_data(1, :) = predict_data(1, :) + X_out(1, 1:N);
 predict_data(2, :) = predict_data(2, :) + X_out(2, 1:N);
+predict_data(3, :) = predict_data(3, :) + X_out(3, 1:N);
+u_car = uout(:, 1) + Ref_path_Init(4:6, 1);
+
 % 计算实际控制量 u_car = [vx; vy; r]
 % 应用控制量
-u_car = uout(:, 1) + Ref_path_Init(4:6, 1);
-%打印
-disp("Time:");
-disp(Time);
-disp("u_car:");
-disp(uout + Ref_path_Init(4:6,:));
+
 plot(x_car(1), x_car(2), '*');
 hold on;
 % plot(X_out(1, 1:N) + Ref_path_Init(1, :), X_out(2, 1:N) + Ref_path_Init(2, :), 'r');
 plot(predict_data(1, :), predict_data(2, :), 'r');
 
-% axis([-25 25 -25 25]);
 % 打印调试信息
-
 sys(1) = u_car(1);  % 同时 sys 保存当前的控制值，sys[1] 是系统输出，用于 Simulink 的 S-function 接口
 sys(2) = atan(u_car(2) / (u_car(1) + eps));
 sys(3) = u_car(3);
@@ -224,15 +213,25 @@ sys(4) = 6000;
 function h_val = h(X, U, Refpath0)
     % 定义控制障碍函数 CBF
     % 假设有一个障碍物，确保车辆与障碍物之间的距离大于某个安全值
-    obstacle_position = [0; 2]; % 障碍物位置
-    safe_distance = 1; % 安全距离
-    
+    obstacle_position = [0; 0.5]; % 障碍物位置
+    safe_distance = 0.5; % 安全距离
     % 计算车辆当前位置与障碍物之间的距离
     distance = norm(X(1:2) + Refpath0(1:2) - obstacle_position);
-    
     % 计算 CBF 值
     h_val = distance - safe_distance;
 
+function initializePlot()
+    clf;
+    figure(1);
+    [~, trajectory] = findNearestPoint([0, 0], 0, 0);
+    plot(trajectory(:, 1), trajectory(:, 2), 'b');
+    hold on;
+    grid on;
 
+    % 画圆心在 (0, 1) 半径为 1 的圆
+    theta = linspace(0, 2*pi, 100);
+    x_circle = 1 * cos(theta);
+    y_circle = 1 * sin(theta) + 1;
+    plot(x_circle, y_circle, 'r');
 
 
