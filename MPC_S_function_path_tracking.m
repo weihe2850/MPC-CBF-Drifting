@@ -31,8 +31,18 @@ function [sys, x0, str, ts] = mdlInitializeSizes
     initializePlot();
 
 function sys = mdlOutputs(t,x,u) 
+% 获取车辆当前位置状态 x_car = [X; Y; phi]
 
+X_position = u(1);
+Y_position = u(2);
+theta_position = u(3);
+Ux = u(4);
+beta = u(5);
+r = u(6);
+V = Ux / (cos(beta) + eps);
 Time = u(7);
+%上一时刻的车辆
+u_prev_init = [u(8); u(9); u(10)];
 % 初始化
 opti = casadi.Opti();
 % 预测步数
@@ -49,10 +59,10 @@ X = opti.variable(3, N + 1);
 U = opti.variable(3, N);
 U_prev = opti.parameter(3, 1); % 前一时刻的控制信号
 delta_U = opti.variable(3, N);
-tau = 0.0001; % 控制信号的时间常数
+obstacle_position = [0; 1]; % 障碍物位置
 % 控制增量变量
 J = 0;
-if Time < 0.5
+if Time < 0.1
     Q_M = 1e01 * ([5 0 0;
                    0 5 0;
                    0 0 1]);
@@ -65,18 +75,18 @@ if Time < 0.5
         % 预测轨迹，确保每一步的状态满足模型
             % 状态更新方程
         if k == 1
-            opti.subject_to(X(:, k+1) == vehicle_path_tracking_model(X(:, k), U(:, k), U_prev, Ref_path0(:, k), Ts, tau));
+            opti.subject_to(X(:, k+1) == vehicle_path_tracking_model(X(:, k), U(:, k), U_prev, Ref_path0(:, k), Ts));
         else
-            opti.subject_to(X(:, k+1) == vehicle_path_tracking_model(X(:, k), U(:, k), U(:, k-1), Ref_path0(:, k), Ts, tau));
+            opti.subject_to(X(:, k+1) == vehicle_path_tracking_model(X(:, k), U(:, k), U(:, k-1), Ref_path0(:, k), Ts));
         end
         J = J + X(:, k)' * Q_M * X(:, k) + U(:, 1)' * R * U(:, 1);      
         opti.subject_to(delta_U(:, k) == 0);
     end
 
 else
-    Q_M = 1e03 * ([5 0 0;
-                   0 5 0;
-                   0 0 1]);
+    Q_M = 1e03 * ([1 0 0;
+                   0 1 0;
+                   0 0 0.2]);
     % 状态权重矩阵
     R = 1e01 * ([1 0 0;
                  0 5000 0;
@@ -86,9 +96,9 @@ else
         % 预测轨迹，确保每一步的状态满足模型
             % 状态更新方程
         if k == 1
-            opti.subject_to(X(:, k+1) == vehicle_path_tracking_model(X(:, k), U(:, k), U_prev, Ref_path0(:, k), Ts, tau));
+            opti.subject_to(X(:, k+1) == vehicle_path_tracking_model(X(:, k), U(:, k), U_prev, Ref_path0(:, k), Ts));
         else
-            opti.subject_to(X(:, k+1) == vehicle_path_tracking_model(X(:, k), U(:, k), U(:, k-1), Ref_path0(:, k), Ts, tau));
+            opti.subject_to(X(:, k+1) == vehicle_path_tracking_model(X(:, k), U(:, k), U(:, k-1), Ref_path0(:, k), Ts));
         end
         % 安全约束
         % opti.subject_to(h(X(:, k), U(:, k), Ref_path0(:, k)) >= 0);
@@ -97,20 +107,20 @@ else
         % 原始目标函数
         J = J + X(:, k)' * Q_M * X(:, k) + U(:, 1)' * R * U(:, 1);
         % 当 h 接近 0 时的惩罚
-        penalty = 100000 / (h(X(:, k), U(:, k), Ref_path0(:, k))^2 + epsilon); % epsilon 是一个小的正数，防止除零
+        penalty = 100000 / ( h(obstacle_position, X(:, k), U(:, k), Ref_path0(:, k) )^2 + epsilon ); % epsilon 是一个小的正数，防止除零
         J = J + penalty;    
     end
 
     % 计算 delta_U
-    opti.subject_to(delta_U(1, 1) == (U(1, 1) - u(8)) / Ts);
-    opti.subject_to(delta_U(2, 1) == (U(2, 1) - u(9)) / Ts);
-    opti.subject_to(delta_U(3, 1) == (U(3, 1) - u(10)) / Ts);
+    opti.subject_to(delta_U(1, 1) == (U(1, 1)+Ref_path0(4, 1) - u(8)) / Ts);
+    opti.subject_to(delta_U(2, 1) == (U(2, 1)+Ref_path0(5, 1) - u(9)) / Ts);
+    opti.subject_to(delta_U(3, 1) == (U(3, 1)+Ref_path0(6, 1) - u(10)) / Ts);
     for k = 1:N-1
         opti.subject_to(delta_U(:, k) == (U(:, k+1) - U(:, k)) / Ts);
     end
     %% 
-
-    max_delta_U = [200; 200; 200]; % 控制增量的最大值
+    max_delta_U = [100; 50; 100]; % 控制增量的最大值
+    % max_delta_U = [10; 1; 10]; % 控制增量的最大值
     % 施加控制增量约束
     opti.subject_to(-max_delta_U(1) <= delta_U(1, :) <= max_delta_U(1));
     opti.subject_to(-max_delta_U(2) <= delta_U(2, :) <= max_delta_U(2));
@@ -122,7 +132,7 @@ opti.subject_to(X(:, 1) == X0);
 
 opti.subject_to(  0 <= U(1, :)+Ref_path0(4,:) <= 14);
 opti.subject_to( -6 <= U(2, :)+Ref_path0(5,:) <= 6);
-opti.subject_to( -2 <= U(3, :)+Ref_path0(6,:) <= 2);
+opti.subject_to( -1.5 <= U(3, :)+Ref_path0(6,:) <= 1.5);
 
 
 % 优化问题设置
@@ -138,30 +148,26 @@ opti.solver('ipopt', opts);
 %% MPC部分
 % 状态变量 X = [X - X_r; Y - Y_r; phi - phi_r]
 x_car = [0; 0; 0];
-
-% 获取车辆当前位置状态 x_car = [X; Y; phi]
-x_car(1) = u(1);
-x_car(2) = u(2);
-x_car(3) = u(3);
-Ux = u(4);
-beta = u(5);
-r = u(6);
-V = Ux / (cos(beta) + eps);
-
+x_car(1) = X_position;
+x_car(2) = Y_position;
+x_car(3) = theta_position;
 % 初始化参考轨迹
 Ref_path_Init = zeros(6, N);
 for i = 1:N
     % 计算当前位置
-    currentPosition = [x_car(1) + (i-1) * Ts * V * cos(x_car(3) + beta), x_car(2) + (i-1) * Ts * V * sin(x_car(3) + beta)];
-
+    % 计算预测时域内每个点的位置
+    delta_t = (i-1) * Ts;
+    predicted_x = x_car(1) + V * delta_t * cos(x_car(3) + r * delta_t);
+    predicted_y = x_car(2) + V * delta_t * sin(x_car(3) + r * delta_t);
+    currentPosition = [predicted_x, predicted_y];
     nearestPoint = findNearestPoint(currentPosition, x_car(3), Time);
     % 获取最近点的参考轨迹
-    X_r = nearestPoint(1);
-    Y_r = nearestPoint(2);
+    X_r  = nearestPoint(1);
+    Y_r  = nearestPoint(2);
     theta_r = nearestPoint(3);  
     Ux_r = nearestPoint(4);
     Uy_r = nearestPoint(5);
-    r_r = nearestPoint(6);  
+    r_r  = nearestPoint(6);  
     
     % 填充参考轨迹矩阵
     Ref_path_Init(1, i) = X_r;
@@ -180,7 +186,6 @@ end
 % 初始化状态变量 x = [X - X_r; Y - Y_r; phi - phi_r]
 x_Init = x_car(1:3, 1) - Ref_path_Init(1:3, 1);
 % 控制变量 U = [vx - vx_r; vy - vy_r; r - r_r]
-u_prev_init = [u(8); u(9); u(10)];
 % 设置优化变量的初始值
 opti.set_value(X0, x_Init);
 opti.set_value(Ref_path0, Ref_path_Init); 
@@ -194,7 +199,9 @@ X_out = sol.value(X);
 predict_data(1, :) = predict_data(1, :) + X_out(1, 1:N);
 predict_data(2, :) = predict_data(2, :) + X_out(2, 1:N);
 predict_data(3, :) = predict_data(3, :) + X_out(3, 1:N);
-u_car = uout(:, 1) + Ref_path_Init(4:6, 1);
+u_car = uout + Ref_path_Init(4:6, :);
+%打印
+% disp(u_car)
 
 % 计算实际控制量 u_car = [vx; vy; r]
 % 应用控制量
@@ -205,20 +212,19 @@ hold on;
 plot(predict_data(1, :), predict_data(2, :), 'r');
 
 % 打印调试信息
-sys(1) = u_car(1);  % 同时 sys 保存当前的控制值，sys[1] 是系统输出，用于 Simulink 的 S-function 接口
-sys(2) = atan(u_car(2) / (u_car(1) + eps));
-sys(3) = u_car(3);
+sys(1) = u_car(1,1);  % 同时 sys 保存当前的控制值，sys[1] 是系统输出，用于 Simulink 的 S-function 接口
+sys(2) = atan(u_car(2,1) / (u_car(1,1) + eps));
+sys(3) = u_car(3,1);
 sys(4) = 6000;
 
-function h_val = h(X, U, Refpath0)
+function h_val = h(obstacle_position,X, U, Refpath0)
     % 定义控制障碍函数 CBF
     % 假设有一个障碍物，确保车辆与障碍物之间的距离大于某个安全值
-    obstacle_position = [0; 0.5]; % 障碍物位置
-    safe_distance = 0.5; % 安全距离
+    
     % 计算车辆当前位置与障碍物之间的距离
-    distance = norm(X(1:2) + Refpath0(1:2) - obstacle_position);
+    distance = norm(X(1:2,:) + Refpath0(1:2,:) - obstacle_position);
     % 计算 CBF 值
-    h_val = distance - safe_distance;
+    h_val = distance ;
 
 function initializePlot()
     clf;
@@ -227,11 +233,10 @@ function initializePlot()
     plot(trajectory(:, 1), trajectory(:, 2), 'b');
     hold on;
     grid on;
-
     % 画圆心在 (0, 1) 半径为 1 的圆
     theta = linspace(0, 2*pi, 100);
-    x_circle = 1 * cos(theta);
-    y_circle = 1 * sin(theta) + 1;
+    x_circle = 2 * cos(theta);
+    y_circle = 2 * sin(theta) + 1;
     plot(x_circle, y_circle, 'r');
 
 

@@ -1,4 +1,4 @@
-function x_update = vehicle_path_tracking_model(x, u, u_prev, Ref_path, Ts, tau)
+function x_update = vehicle_path_tracking_model(x, u, u_prev, Ref_path, Ts)
     % 提取参考轨迹
     X_r = Ref_path(1);
     Y_r = Ref_path(2);
@@ -17,12 +17,11 @@ function x_update = vehicle_path_tracking_model(x, u, u_prev, Ref_path, Ts, tau)
     C = eye(3); 
 
     % 控制信号延迟模型 (一阶滞后)
-    u_delayed = (tau) * u + (1 - tau) * u_prev;
-
     % 计算状态导数
-    x_dot = A * x + B * u_delayed;
-
-    alpha = 0.4; % 0.5 表示中点法
+    
+    x_dot = A * x + B * u_prev;
+    %alpha越大，控制信号越接近当前时刻的控制信号
+    alpha = 0.7; 
     % 更新状态
     x_update = (1 - alpha) * x + alpha * (x + x_dot * Ts);
 end
