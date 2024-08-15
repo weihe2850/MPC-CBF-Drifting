@@ -29,7 +29,7 @@ function [sys, x0, str, ts] = mdlInitializeSizes
 
     % 清除图形并初始化绘图
     initializePlot();
-
+    figure(1);
 function sys = mdlOutputs(t,x,u) 
 % 获取车辆当前位置状态 x_car = [X; Y; phi]
 
@@ -40,6 +40,7 @@ Ux = u(4);
 beta = u(5);
 r = u(6);
 V = Ux / (cos(beta) + eps);
+Uy = V * sin(beta);
 Time = u(7);
 %上一时刻的车辆
 u_prev_init = [u(8); u(9); u(10)];
@@ -59,80 +60,125 @@ X = opti.variable(3, N + 1);
 U = opti.variable(3, N);
 U_prev = opti.parameter(3, 1); % 前一时刻的控制信号
 delta_U = opti.variable(3, N);
-obstacle_position = [0; 1]; % 障碍物位置
-% 控制增量变量
-J = 0;
-if Time < 0.1
-    Q_M = 1e01 * ([5 0 0;
-                   0 5 0;
-                   0 0 1]);
-    % 状态权重矩阵
-    R = 1e04 * ([1 0 0;
-                 0 5 0;
-                 0 0 1]);
-    % 模型预测控制部分
-    for k = 1:N    
-        % 预测轨迹，确保每一步的状态满足模型
-            % 状态更新方程
-        if k == 1
-            opti.subject_to(X(:, k+1) == vehicle_path_tracking_model(X(:, k), U(:, k), U_prev, Ref_path0(:, k), Ts));
-        else
-            opti.subject_to(X(:, k+1) == vehicle_path_tracking_model(X(:, k), U(:, k), U(:, k-1), Ref_path0(:, k), Ts));
-        end
-        J = J + X(:, k)' * Q_M * X(:, k) + U(:, 1)' * R * U(:, 1);      
-        opti.subject_to(delta_U(:, k) == 0);
+obstacle_position = [-5; -38]; % 障碍物位置
+
+%% MPC部分
+% 状态变量 X = [X - X_r; Y - Y_r; phi - phi_r]
+x_car = [0; 0; 0];
+x_car(1) = X_position;
+x_car(2) = Y_position;
+x_car(3) = theta_position;
+J=0;
+% 初始化参考轨迹
+Ref_path_Init = zeros(6, N);
+distances = zeros(1, N); % 用于存储每个点的距离
+
+for k = 1:N
+    % 计算当前位置
+    delta_t = (k-1) * Ts;
+    predicted_x = x_car(1) + V * delta_t * cos(x_car(3) + r * delta_t);
+    predicted_y = x_car(2) + V * delta_t * sin(x_car(3) + r * delta_t);
+    currentPosition = [predicted_x, predicted_y];
+    nearestPoint = findNearestPoint(currentPosition, x_car(3), Time);
+    
+    % 获取最近点的参考轨迹
+    X_r  = nearestPoint(1);
+    Y_r  = nearestPoint(2);
+    theta_r = nearestPoint(3);  
+    Ux_r = nearestPoint(4);
+    Uy_r = nearestPoint(5);
+    r_r  = nearestPoint(6);  
+    % 计算当前距离参考轨迹的距离
+    distance = sqrt((predicted_x - X_r)^2 + (predicted_y - Y_r)^2);
+    theta_error = x_car(3) - theta_r;
+    distances(k) = distance;
+
+    % 动态调整 Q_M 和 R
+    % if distance > 2 || abs(theta_error) > 0.2  % 设定一个阈值
+    if Time <4  % 设定一个阈值
+        Q_M = 1e01 * ([5 0 0;
+                        0 5 0;
+                        0 0 0.5]);
+        R   = 1e010 * ([1 0 0;
+                        0 1000 0;
+                        0 0 1]);
+    else
+        Q_M = 1e01 * ([5 0 0;
+                        0 5 0;
+                        0 0 1]);
+        R = 1e01 * ([1 0 0;
+                        0 5 0;
+                        0 0 1]);
     end
 
-else
-    Q_M = 1e03 * ([1 0 0;
-                   0 1 0;
-                   0 0 0.2]);
-    % 状态权重矩阵
-    R = 1e01 * ([1 0 0;
-                 0 5000 0;
-                 0 0 1]);
-    % 模型预测控制部分
-    for k = 1:N    
-        % 预测轨迹，确保每一步的状态满足模型
-            % 状态更新方程
-        if k == 1
-            opti.subject_to(X(:, k+1) == vehicle_path_tracking_model(X(:, k), U(:, k), U_prev, Ref_path0(:, k), Ts));
-        else
-            opti.subject_to(X(:, k+1) == vehicle_path_tracking_model(X(:, k), U(:, k), U(:, k-1), Ref_path0(:, k), Ts));
-        end
-        % 安全约束
-        % opti.subject_to(h(X(:, k), U(:, k), Ref_path0(:, k)) >= 0);
-        % J = J + X(:, k)' * Q_M * X(:, k) + U(:, 1)' * R * U(:, 1);    
-        epsilon = 1e-6; % 小的正数，防止除零
-        % 原始目标函数
-        J = J + X(:, k)' * Q_M * X(:, k) + U(:, 1)' * R * U(:, 1);
-        % 当 h 接近 0 时的惩罚
-        penalty = 100000 / ( h(obstacle_position, X(:, k), U(:, k), Ref_path0(:, k) )^2 + epsilon ); % epsilon 是一个小的正数，防止除零
-        J = J + penalty;    
-    end
+    % 填充参考轨迹矩阵
+    Ref_path_Init(1, k) = X_r;
+    Ref_path_Init(2, k) = Y_r;
+    Ref_path_Init(3, k) = theta_r;  
+    Ref_path_Init(4, k) = Ux_r;
+    Ref_path_Init(5, k) = Uy_r;
+    Ref_path_Init(6, k) = r_r;  
+    
+    predict_data(1, k) = X_r;
+    predict_data(2, k) = Y_r;
+    predict_data(3, k) = theta_r;
 
-    % 计算 delta_U
-    opti.subject_to(delta_U(1, 1) == (U(1, 1)+Ref_path0(4, 1) - u(8)) / Ts);
-    opti.subject_to(delta_U(2, 1) == (U(2, 1)+Ref_path0(5, 1) - u(9)) / Ts);
-    opti.subject_to(delta_U(3, 1) == (U(3, 1)+Ref_path0(6, 1) - u(10)) / Ts);
-    for k = 1:N-1
-        opti.subject_to(delta_U(:, k) == (U(:, k+1) - U(:, k)) / Ts);
+    
+    % 模型预测控制部分
+    if k == 1
+        opti.subject_to(X(:, k+1) == vehicle_path_tracking_model(X(:, k), U(:, k), U_prev, Ref_path0(:, k), Ts));
+    else
+        opti.subject_to(X(:, k+1) == vehicle_path_tracking_model(X(:, k), U(:, k), U(:, k-1), Ref_path0(:, k), Ts));
     end
-    %% 
-    max_delta_U = [100; 50; 100]; % 控制增量的最大值
-    % max_delta_U = [10; 1; 10]; % 控制增量的最大值
-    % 施加控制增量约束
-    opti.subject_to(-max_delta_U(1) <= delta_U(1, :) <= max_delta_U(1));
-    opti.subject_to(-max_delta_U(2) <= delta_U(2, :) <= max_delta_U(2));
-    opti.subject_to(-max_delta_U(3) <= delta_U(3, :) <= max_delta_U(3));
+    
+    % 定义变量
+    r_car = U(3, k)  + r_r;
+    Uy_car = U(2, k)  + Uy_r;
+    Ux_car = U(1, k)  + Ux_r;
+    % 使用 if_else 进行条件判断和约束
+    % drift_condition = abs(U2) > 0.2;
+    % opti.subject_to(drift_condition * abs(U3) >= drift_condition * 0.5); % 漂移状态下航向角速度的约束
+    % opti.subject_to(drift_condition * abs(U3 * U2) <= drift_condition * 0); % 漂移状态下航向角速度的约束
+
+    % non_drift_condition = abs(U3_car) < 0.3;
+    % opti.subject_to(non_drift_condition * abs(U2_car) == non_drift_condition * 0); % 非漂移状态下侧滑角的约束
+
+    % 计算漂移状态和非漂移状态的软约束惩罚
+    drift_control_penalty = calculate_penalties(Ux_car, Uy_car, r_car);
+
+    % 计算目标函数
+    J = J + X(:, k)' * Q_M * X(:, k) + U(:, 1)' * R * U(:, 1) + drift_control_penalty;
+    
+    % % % % 安全约束
+    if 15 < Time   && Time < 30
+    epsilon = 1e-6; % 小的正数，防止除零
+    penalty = 50000 / ( h(obstacle_position, X(:, k), U(:, k), Ref_path0(:, k) )^2 + epsilon ); % epsilon 是一个小的正数，防止除零
+    J = J + penalty;
+
+    end
 end
+initializePlot()
+    % % 计算 delta_U
+    % opti.subject_to(delta_U(1, 1) == (U(1, 1)+Ref_path0(4, 1) - Ux) / Ts);
+    % opti.subject_to(delta_U(2, 1) == (U(2, 1)+Ref_path0(5, 1) - Uy) / Ts);
+    % opti.subject_to(delta_U(3, 1) == (U(3, 1)+Ref_path0(6, 1) - r) / Ts);
+    % for k = 1:N-1
+    %     opti.subject_to(delta_U(:, k) == (U(:, k+1) - U(:, k)) / Ts);
+    % end
+    % %% 0
+    % max_delta_U = [10000; 50000; 10000]; % 控制增量的最大值
+    % % max_delta_U = [10; 1; 10]; % 控制增量的最大值
+    % % 施加控制增量约束
+    % opti.subject_to(-max_delta_U(1) <= delta_U(1, :) <= max_delta_U(1));
+    % opti.subject_to(-max_delta_U(2) <= delta_U(2, :) <= max_delta_U(2));
+    % opti.subject_to(-max_delta_U(3) <= delta_U(3, :) <= max_delta_U(3));
 %%
 % 结束约束条件
 opti.subject_to(X(:, 1) == X0);
 
 opti.subject_to(  0 <= U(1, :)+Ref_path0(4,:) <= 14);
-opti.subject_to( -6 <= U(2, :)+Ref_path0(5,:) <= 6);
-opti.subject_to( -1.5 <= U(3, :)+Ref_path0(6,:) <= 1.5);
+opti.subject_to( -8 <= U(2, :)+Ref_path0(5,:) <= 8);
+opti.subject_to( -2 <= U(3, :)+Ref_path0(6,:) <= 2);
 
 
 % 优化问题设置
@@ -145,43 +191,6 @@ opts.ipopt.acceptable_tol = 1e-8;
 opts.ipopt.acceptable_obj_change_tol = 1e-6;
 opti.solver('ipopt', opts);
 
-%% MPC部分
-% 状态变量 X = [X - X_r; Y - Y_r; phi - phi_r]
-x_car = [0; 0; 0];
-x_car(1) = X_position;
-x_car(2) = Y_position;
-x_car(3) = theta_position;
-% 初始化参考轨迹
-Ref_path_Init = zeros(6, N);
-for i = 1:N
-    % 计算当前位置
-    % 计算预测时域内每个点的位置
-    delta_t = (i-1) * Ts;
-    predicted_x = x_car(1) + V * delta_t * cos(x_car(3) + r * delta_t);
-    predicted_y = x_car(2) + V * delta_t * sin(x_car(3) + r * delta_t);
-    currentPosition = [predicted_x, predicted_y];
-    nearestPoint = findNearestPoint(currentPosition, x_car(3), Time);
-    % 获取最近点的参考轨迹
-    X_r  = nearestPoint(1);
-    Y_r  = nearestPoint(2);
-    theta_r = nearestPoint(3);  
-    Ux_r = nearestPoint(4);
-    Uy_r = nearestPoint(5);
-    r_r  = nearestPoint(6);  
-    
-    % 填充参考轨迹矩阵
-    Ref_path_Init(1, i) = X_r;
-    Ref_path_Init(2, i) = Y_r;
-    Ref_path_Init(3, i) = theta_r;  
-    Ref_path_Init(4, i) = Ux_r;
-    Ref_path_Init(5, i) = Uy_r;
-    Ref_path_Init(6, i) = r_r;  
-    
-    predict_data(1, i) = X_r;
-    predict_data(2, i) = Y_r;
-    predict_data(3, i) = theta_r;
-
-end
 
 % 初始化状态变量 x = [X - X_r; Y - Y_r; phi - phi_r]
 x_Init = x_car(1:3, 1) - Ref_path_Init(1:3, 1);
@@ -216,6 +225,10 @@ sys(1) = u_car(1,1);  % 同时 sys 保存当前的控制值，sys[1] 是系统输出，用于 Simul
 sys(2) = atan(u_car(2,1) / (u_car(1,1) + eps));
 sys(3) = u_car(3,1);
 sys(4) = 6000;
+if sys(3) < 0
+    sys(2) = 0;
+end
+
 
 function h_val = h(obstacle_position,X, U, Refpath0)
     % 定义控制障碍函数 CBF
@@ -227,16 +240,48 @@ function h_val = h(obstacle_position,X, U, Refpath0)
     h_val = distance ;
 
 function initializePlot()
-    clf;
-    figure(1);
+    % clf;
+    % figure(1);
     [~, trajectory] = findNearestPoint([0, 0], 0, 0);
     plot(trajectory(:, 1), trajectory(:, 2), 'b');
     hold on;
     grid on;
     % 画圆心在 (0, 1) 半径为 1 的圆
     theta = linspace(0, 2*pi, 100);
-    x_circle = 2 * cos(theta);
-    y_circle = 2 * sin(theta) + 1;
+    x_circle = 2 * cos(theta) -  5;
+    y_circle = 2 * sin(theta) - 39;
     plot(x_circle, y_circle, 'r');
 
+    % % 画圆心在 (0, 1) 半径为 1 的圆
+    % theta = linspace(0, 2*pi, 100);
+    % x_circle = 27 * cos(theta) -48;
+    % y_circle = 27 * sin(theta) -46;
+    % plot(x_circle, y_circle, 'b');
+    %漂移可控约束
 
+% 定义sigmoid函数
+function y = sigmoid(x)
+    y = 1 / (1 + exp(-x));
+% 定义tanh函数
+
+function drift_control_penalty= calculate_penalties(Ux_car, Uy_car, r_car)
+
+    % 定义softplus函数
+    penalty_drift = 0; % 漂移状态下的惩罚系数
+    penalty_non_drift = 0; % 非漂移状态下的惩罚系数
+    drift_r_min = 0.2; % 漂移状态下的航向角速度限制
+    non_drift_beta_max = 0.2; % 非漂移状态下的侧滑角限制
+    non_drift_Uy_max = tan(non_drift_beta_max) * Ux_car; % 非漂移状态下的横向速度限制
+
+    % 漂移状态下的软约束
+    drift_condition = sigmoid(10 * (Uy_car^2 - non_drift_Uy_max^2));
+    sign_same = sigmoid(20*Uy_car * r_car);
+    
+    drift_penalty = penalty_drift * drift_condition * (sigmoid(100 *(drift_r_min^2 - r_car^2))+10000*sign_same);
+
+    % 非漂移状态下的软约束
+    non_drift_condition = sigmoid(10 * (drift_r_min^2 - r_car^2));
+    sign_diff = sigmoid(-20*Uy_car * r_car);
+    non_drift_penalty = penalty_non_drift * non_drift_condition *  (sigmoid(Uy_car^2)+10000*sign_diff);
+
+    drift_control_penalty = drift_penalty + non_drift_penalty;

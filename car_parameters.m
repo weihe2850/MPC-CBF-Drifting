@@ -1,6 +1,6 @@
 function   pars=car_parameters()
 
-%% Carsim_2020°æ±¾ Class_C³µ²ÎÊý  ¶¯Á¦ÏµÍ³£ººóÇý300kW,6-spd,4:1 Ratio
+%% Carsim_2020ï¿½æ±¾ Class_Cï¿½ï¿½ï¿½ï¿½ï¿½ï¿½  ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½300kW,6-spd,4:1 Ratio
 pars.g = 9.8;           % m / s^2
 pars.m = 1650;          % kg
 pars.Iz = 1536;         % kg / m^2
@@ -22,7 +22,7 @@ pars.L = 2.91; % m
 pars.CaF = 12.13*1.451*mu*6500;      % N / rad
 pars.CaR = 12.13*1.451*mu*6500;       % N / rad
 
-% %% eq states  ÔÚgive_states_eqÄ£¿éÖÐ¸ø¶¨
+% %% eq states  ï¿½ï¿½give_states_eqÄ£ï¿½ï¿½ï¿½Ð¸ï¿½ï¿½ï¿½
 % pars.Ux_eq      = 10;
 % pars.beta_eq    = -30*pi/180;
 % pars.r_eq       = 0.5;

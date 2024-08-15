@@ -2,12 +2,9 @@ function [nearestPoint, trajectory] = findNearestPoint(currentPosition, currentT
     % 初始化轨迹参数
     pars = Refpath_parameters(Time);
     
-    % 计算轨迹中心点
-    [center_X1, center_Y1] = calculateCenter(pars.radius_p1, pars.start_theta_p1);
-
     % 生成轨迹点
     % [x_p1, y_p1] = generateTrajectory(pars.radius_p1, pars.start_theta_p1, pars.end_theta_p1, pars.number_p1, 3, 7);
-    [x_p1, y_p1] = generateTrajectory(pars.radius_p1, pars.start_theta_p1, pars.end_theta_p1, pars.number_p1, 0, -18);
+    [x_p1, y_p1] = generateTrajectory(pars.radius_p1, pars.start_theta_p1, pars.end_theta_p1, pars.number_p1, -pars.center_X, -pars.center_Y);
     % 合并轨迹点
     x = x_p1;
     y = y_p1;
@@ -37,10 +34,6 @@ function [nearestPoint, trajectory] = findNearestPoint(currentPosition, currentT
     nearestPoint = [X_r, Y_r, theta_r, Ux_r, Uy_r, r_r]';
 end
 
-function [center_X, center_Y] = calculateCenter(radius, start_theta)
-    center_X = radius * cos(start_theta);
-    center_Y = radius * sin(start_theta);
-end
 
 function [x, y] = generateTrajectory(radius, start_theta, end_theta, number, center_X, center_Y)
     theta = My_linspace(start_theta, end_theta, number);
